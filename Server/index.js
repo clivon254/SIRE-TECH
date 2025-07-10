@@ -7,6 +7,7 @@ import "dotenv/config"
 import authRoute from "./route/authRoute.js"
 import userRoute from "./route/userRoute.js"
 import clientRoute from "./route/clientRoute.js"
+import projectRoute from "./route/projectRoute.js"
 
 
 
@@ -43,6 +44,7 @@ app.use("/api/user" , userRoute)
 app.use("/api/client", clientRoute)
 
 
+app.use("/api/project", projectRoute)
 
 
 
