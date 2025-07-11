@@ -1,4 +1,3 @@
-
 import Quatation from "../model/quatationModel.js";
 import { errorHandler } from "../utils/error.js";
 import PDFDocument from "pdfkit";
@@ -9,7 +8,7 @@ import Project from "../model/projectModel.js";
 
 
 // Helper to generate PDF and return the file URL
-const generateQuotationPDF = async (quotation, req) => {
+const generateQuotationPDF = async (quotation, req, subtotal, vat, total) => {
     // Ensure the public/quotations directory exists
     const dir = path.join(process.cwd(), "public", "quotations");
     if (!fs.existsSync(dir)) {
@@ -53,13 +52,18 @@ const generateQuotationPDF = async (quotation, req) => {
 
 
     // Dates
-    doc.fontSize(10).text(`Issue Date: ${quotation.issueDate}`);
-    doc.text(`Expiry Date: ${quotation.expiryDate}`);
+    doc.fontSize(10).text(`Issue Date: ${quotation.issueDate ? new Date(quotation.issueDate).toLocaleDateString() : ""}`);
+    doc.text(`Expiry Date: ${quotation.expiryDate ? new Date(quotation.expiryDate).toLocaleDateString() : ""}`);
     doc.moveDown();
 
     // Description
     if (quotation.description) {
-        doc.fontSize(12).text(`${quotation.description}`);
+        // If description contains HTML, render it as rich text
+        if (/<[a-z][\s\S]*>/i.test(quotation.description)) {
+            renderHtmlToPdf(doc, quotation.description, { fontSize: 12 });
+        } else {
+            doc.fontSize(12).text(quotation.description);
+        }
         doc.moveDown();
     }
 
@@ -97,9 +101,9 @@ const generateQuotationPDF = async (quotation, req) => {
 
     // Add Subtotal, VAT, and Total as table rows with borders
     const summaryRows = [
-        { label: "Subtotal", value: quotation.subtotal },
-        { label: "VAT", value: quotation.vat },
-        { label: "Total", value: quotation.total }
+        { label: "Subtotal", value: subtotal },
+        { label: "VAT", value: vat },
+        { label: "Total", value: total }
     ];
 
     summaryRows.forEach(row => {
@@ -131,37 +135,118 @@ const generateQuotationPDF = async (quotation, req) => {
 };
 
 
+// Helper to render basic HTML (p, ul, li) in PDFKit
+function renderHtmlToPdf(doc, html, options = {}) {
+    const { bulletIndent = 20, lineGap = 4, fontSize = 12 } = options;
+    doc.fontSize(fontSize);
+
+    // Simple regex-based parser for <p>, <ul>, <li>
+    // This is not a full HTML parser, but works for simple rich text
+    const paragraphRegex = /<p>(.*?)<\/p>/gis;
+    const ulRegex = /<ul>(.*?)<\/ul>/gis;
+    const liRegex = /<li>(.*?)<\/li>/gis;
+
+    let lastIndex = 0;
+    let match;
+
+    // Render paragraphs and lists in order of appearance
+    while (lastIndex < html.length) {
+        // Find next <p> or <ul>
+        const pMatch = paragraphRegex.exec(html);
+        const ulMatch = ulRegex.exec(html);
+
+        // Determine which comes first
+        let nextTag, nextIndex;
+        if (pMatch && (!ulMatch || pMatch.index < ulMatch.index)) {
+            nextTag = 'p';
+            nextIndex = pMatch.index;
+        } else if (ulMatch) {
+            nextTag = 'ul';
+            nextIndex = ulMatch.index;
+        } else {
+            break;
+        }
+
+        // Render any text before the next tag as plain text
+        if (nextIndex > lastIndex) {
+            const text = html.substring(lastIndex, nextIndex).replace(/<[^>]+>/g, '').trim();
+            if (text) {
+                doc.text(text, { lineGap });
+                doc.moveDown(0.5);
+            }
+        }
+
+        if (nextTag === 'p') {
+            const text = pMatch[1].replace(/<br\s*\/?>/g, '\n').trim();
+            doc.text(text, { lineGap });
+            doc.moveDown(0.5);
+            lastIndex = paragraphRegex.lastIndex;
+        } else if (nextTag === 'ul') {
+            const ulContent = ulMatch[1];
+            let li;
+            while ((li = liRegex.exec(ulContent)) !== null) {
+                const text = li[1].replace(/<br\s*\/?>/g, '\n').trim();
+                doc.text(`• ${text}`, { indent: bulletIndent, lineGap });
+            }
+            doc.moveDown(0.5);
+            lastIndex = ulRegex.lastIndex;
+        }
+    }
+
+    // Render any remaining text after the last tag
+    if (lastIndex < html.length) {
+        const text = html.substring(lastIndex).replace(/<[^>]+>/g, '').trim();
+        if (text) {
+            doc.text(text, { lineGap });
+            doc.moveDown(0.5);
+        }
+    }
+}
+
+
 export const createQuotation = async (req, res, next) => {
     try {
         if (!req.user.isAdmin) {
             return next(errorHandler(403, "Only admin can create quotations"));
         }
 
-        // Required fields
-        const { projectId, issueDate, expiryDate, items, subtotal, vat, total, status ,description ,clientId} = req.body;
+        // Remove issueDate and expiryDate from destructuring
+        const { projectId, items, status, description, clientId } = req.body;
 
-        if (!projectId || !issueDate || !expiryDate || !items || !subtotal || !vat || !total) {
+        // Remove issueDate and expiryDate from required fields check
+        if (!projectId || !items || !description || !clientId) {
             return next(errorHandler(400, "Missing required fields"));
         }
 
-        // Create the quotation (without URL first)
+        // Set default dates
+        const issueDate = new Date();
+        const expiryDate = new Date();
+        expiryDate.setDate(issueDate.getDate() + 14);
+
+        // Calculate subtotal, vat, total
+        const subtotal = items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        const vat = +(subtotal * 0.05).toFixed(2);
+        const total = +(subtotal + vat).toFixed(2);
+
+        // Create the quotation (do NOT include issueDate/expiryDate in DB)
         const quotation = new Quatation({
             projectId,
             clientId,
-            issueDate,
-            expiryDate,
             items,
-            subtotal,
-            vat,
-            total,
             status,
             description
         });
 
         await quotation.save();
 
-        // Generate PDF and get URL
-        const pdfUrl = await generateQuotationPDF(quotation, req);
+        // Pass the dates to the PDF generator
+        const pdfUrl = await generateQuotationPDF(
+            { ...quotation.toObject(), issueDate, expiryDate }, // pass dates for PDF
+            req,
+            subtotal,
+            vat,
+            total
+        );
 
         // Update the quotation with the PDF URL
         quotation.url = pdfUrl;
@@ -170,7 +255,14 @@ export const createQuotation = async (req, res, next) => {
         res.status(201).json({
             success: true,
             message: "Quotation created and PDF generated",
-            quotation
+            quotation: {
+                ...quotation.toObject(),
+                issueDate,
+                expiryDate,
+                subtotal,
+                vat,
+                total
+            }
         });
     } catch (error) {
         next(error);
@@ -178,81 +270,143 @@ export const createQuotation = async (req, res, next) => {
 };
 
 
-export const getQuatation = async (req,res,next) => {
-
-    const {quatationId} = req.params
-
-    try
-    {
-        const quatation = await Quatation.findById(quatationId)
-
-        if(!quatation)
-        {
-            return next(errorHandler(404,"Quatation not found "))
+export const getQuatation = async (req, res, next) => {
+    const { quatationId } = req.params;
+    try {
+        const quatation = await Quatation.findById(quatationId);
+        if (!quatation) {
+            return next(errorHandler(404, "Quatation not found "));
         }
+        const subtotal = quatation.items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        const vat = +(subtotal * 0.05).toFixed(2);
+        const total = +(subtotal + vat).toFixed(2);
 
-        res.status(200).json({success:true , quatation})
+        // Use createdAt as issueDate, and expiryDate as 14 days after
+        const issueDate = quatation.createdAt;
+        const expiryDate = new Date(new Date(issueDate).getTime() + 14 * 24 * 60 * 60 * 1000);
 
-    }
-    catch(error)
-    {
-        next(error)
-    }
-
-}
-
-
-export const getQuatations = async (req,res,next) => {
-
-    try
-    {
-        const quatations = await Quatation.find()
-
-        res.status(200).json({success:true , quatations})
-
-    }
-    catch(error)
-    {
-        next(error)
-    }
-
-}
-
-
-export const updateQuatation = async (req,res,next) => {
-
-    if(!req.user.isAdmin)
-    {
-        return next(errorHandler(403,"You are not allowed to update the quatation"))
-    }
-
-    const {quatationId} = req.params
-
-    try
-    {
-        const quatation = await Quatation.findById(quatationId)
-
-        if(!quatation)
-        {
-            return next(errorHandler(404,"quatation not found "))
-        }
-
-        const updatedQuatation = await Quatation.findByIdAndUpdate(
-            quatationId,
-            {
-                $set:{
-                    
-                }
+        res.status(200).json({
+            success: true,
+            quatation: {
+                ...quatation.toObject(),
+                issueDate,
+                expiryDate,
+                subtotal,
+                vat,
+                total
             }
-        )
-
+        });
+    } catch (error) {
+        next(error);
     }
-    catch(error)
-    {
-        next(error)
+};
+
+
+export const getQuatations = async (req, res, next) => {
+    try {
+        // Sort by createdAt descending (newest first)
+        const quatations = await Quatation.find().sort({ createdAt: -1 });
+        const result = quatations.map(q => {
+            const subtotal = q.items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const vat = +(subtotal * 0.05).toFixed(2);
+            const total = +(subtotal + vat).toFixed(2);
+
+            // Use createdAt as issueDate, and expiryDate as 14 days after
+            const issueDate = q.createdAt;
+            const expiryDate = new Date(new Date(issueDate).getTime() + 14 * 24 * 60 * 60 * 1000);
+
+            return {
+                ...q.toObject(),
+                issueDate,
+                expiryDate,
+                subtotal,
+                vat,
+                total
+            };
+        });
+        res.status(200).json({ success: true, quatations: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const updateQuatation = async (req, res, next) => {
+    if (!req.user.isAdmin) {
+        return next(errorHandler(403, "You are not allowed to update the quatation"));
     }
 
-}
+    const { quatationId } = req.params;
+
+    try {
+        let quatation = await Quatation.findById(quatationId);
+
+        if (!quatation) {
+            return next(errorHandler(404, "quatation not found "));
+        }
+
+        // Allowed statuses (sync with model)
+        const allowedStatuses = ["Draft", "Sent", "Approved", "Expired", "Oksy"];
+
+        const updateData = {};
+
+        // Only update fields if provided
+        if (req.body.status) {
+            if (!allowedStatuses.includes(req.body.status)) {
+                return next(errorHandler(400, "Invalid status value"));
+            }
+            updateData.status = req.body.status;
+        }
+        if (req.body.description) updateData.description = req.body.description;
+
+        if (req.body.items) updateData.items = req.body.items;
+        // These are not in the DB by default, but we allow updating for PDF
+        let issueDate = req.body.issueDate ? new Date(req.body.issueDate) : quatation.createdAt;
+
+        let expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : new Date(new Date(issueDate).getTime() + 14 * 24 * 60 * 60 * 1000);
+
+        // Update the document
+        quatation = await Quatation.findByIdAndUpdate(
+            quatationId,
+            { $set: updateData },
+            { new: true }
+        );
+
+        // Recalculate subtotal, vat, total
+        const items = req.body.items || quatation.items;
+        const subtotal = items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        const vat = +(subtotal * 0.05).toFixed(2);
+        const total = +(subtotal + vat).toFixed(2);
+
+        // Regenerate PDF and update URL
+        const pdfUrl = await generateQuotationPDF(
+            { ...quatation.toObject(), issueDate, expiryDate, items },
+            req,
+            subtotal,
+            vat,
+            total
+        );
+
+        quatation.url = pdfUrl;
+        
+        await quatation.save();
+
+        res.status(200).json({
+            success: true,
+            quatation: {
+                ...quatation.toObject(),
+                issueDate,
+                expiryDate,
+                subtotal,
+                vat,
+                total
+            }
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
 
 
 export const deleteQuatation = async (req,res,next) => {

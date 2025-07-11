@@ -7,10 +7,6 @@ const quatationSchema = new mongoose.Schema({
 
     clientId:{type:mongoose.Schema.Types.ObjectId , ref:"Client" , required:true},
 
-    issueDate: { type: Date, required: true },
-
-    expiryDate: { type: Date, required: true },
-
     items: [
         {
             desc: { type: String, required: true },
@@ -21,13 +17,7 @@ const quatationSchema = new mongoose.Schema({
 
     description:{type:String , required:true},
 
-    subtotal: { type: Number},
-
-    vat: { type: Number },
-
-    total: { type: Number},
-
-    status: { type: String, enum: ["Draft", "Sent", "Approved", "Expired"], default: "Draft" },
+    status: { type: String, enum: ["Draft", "Sent", "Approved", "Expired",], default: "Draft" },
 
     url:{type:String}
 
