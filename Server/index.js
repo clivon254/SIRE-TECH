@@ -35,6 +35,11 @@ app.use('/quotations', express.static(path.join(process.cwd(), 'public', 'quotat
 
 app.use('/api/quatation' ,quatationRoute)
 
+
+
+
+
+
 //API
 app.get('/',(req,res) => {
     res.send('HELLO SIRE TECH')

@@ -7,6 +7,7 @@ import Client from "../model/clientModel.js";
 import Project from "../model/projectModel.js";
 import transporter from "../utils/nodemailer.js";
 
+
 // Helper to generate PDF and return the file URL
 const generateQuotationPDF = async (quotation, req, subtotal, vat, total) => {
     // Ensure the public/quotations directory exists
@@ -439,6 +440,7 @@ export const deleteQuatation = async (req,res,next) => {
 
 }
 
+
 export const sendQuotationEmail = async (req, res, next) => {
 
     // Admin check
@@ -473,27 +475,44 @@ export const sendQuotationEmail = async (req, res, next) => {
             to: client.email,
             subject: "Your Quotation from SIRE TECH",
             html: `
-                <div style="font-family: Arial, sans-serif; color: #222;">
-                    <h2>Hello ${client.name},</h2>
-                    <p>
-                        Thank you for choosing <strong>SIRE TECH</strong>!<br>
-                        We are pleased to send you your quotation for the requested project.<br>
-                        Please review the attached quotation carefully.
-                    </p>
-                    <p>
-                        <strong>To view and sign your quotation, please click the link below:</strong>
-                    </p>
-                    <p style="margin: 20px 0;">
-                        <a href="${quatation.url}" style="background: #007bff; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-                            View & Sign Quotation PDF
-                        </a>
-                    </p>
-                    <p>
+                <div style="background: #fff; padding: 32px 0; font-family: Arial, sans-serif; color: #660000;">
+                  <div style="max-width: 520px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(208,0,0,0.08); border: 1px solid #222;">
+                    <div style="text-align: center; padding: 24px 0 8px 0;">
+                      <img src="https://i.imgur.com/yourlogo.png" alt="SIRE TECH Logo" style="height: 70px; margin-bottom: 8px;" />
+                      <h1 style="color: #D80000; margin: 0; font-size: 2.2em; letter-spacing: 2px; font-style: italic;">SIRE TECH</h1>
+                    </div>
+                    <div style="padding: 0 32px 24px 32px;">
+                      <h2 style="color: #A30000; margin-top: 16px;">Hello ${client.name} 👋,</h2>
+                      <p style="font-size: 1.1em; color: #660000; margin-bottom: 18px;">
+                        Thank you for choosing <span style="color: #D80000; font-weight: bold;">SIRE TECH</span>! 🚀<br>
+                        We are excited to send you your quotation for the requested project.<br>
+                        Please review the quotation carefully and let us know if you have any questions.
+                      </p>
+                      <div style="background: #FFF3F3; border-left: 5px solid #D80000; padding: 18px 20px; border-radius: 8px; margin-bottom: 18px;">
+                        <p style="margin: 0; color: #A30000; font-size: 1.08em;">
+                          <strong>To view and sign your quotation, please click the button below:</strong>
+                        </p>
+                        <div style="text-align: center; margin: 18px 0;">
+                          <a href="${quatation.url}" style="background: #CC0000; color: #fff; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-size: 1.1em; font-weight: bold; letter-spacing: 1px; display: inline-block;">
+                            📄 View & Sign Quotation
+                          </a>
+                        </div>
+                        <p style="margin: 0; color: #660000; font-size: 0.98em;">
+                          If the button above does not work, copy and paste this link into your browser:<br>
+                          <span style="color: #D80000; word-break: break-all;">${quatation.url}</span>
+                        </p>
+                      </div>
+                      <p style="color: #660000; font-size: 1em;">
                         If you have any questions or need further assistance, feel free to reply to this email.<br>
                         <br>
                         Best regards,<br>
-                        <strong>SIRE TECH Team</strong>
-                    </p>
+                        <span style="color: #D80000; font-weight: bold;">SIRE TECH Team</span> 🤝
+                      </p>
+                    </div>
+                  </div>
+                  <div style="text-align: center; background: #660000; color: #fff; font-size: 0.95em; margin-top: 18px; border-radius: 0 0 12px 12px; padding: 12px 0;">
+                    <span>© ${new Date().getFullYear()} SIRE TECH. All rights reserved.</span>
+                  </div>
                 </div>
             `
         };
@@ -516,6 +535,7 @@ export const sendQuotationEmail = async (req, res, next) => {
             }
 
         });
+
     } catch (error) {
         next(error);
     }
