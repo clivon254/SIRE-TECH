@@ -4,6 +4,8 @@ import {errorHandler} from "../utils/error.js"
 import bcryptjs from "bcryptjs"
 import jwt from "jsonwebtoken"
 import transporter from "../utils/nodemailer.js"
+import { auth } from '../utils/firebase.js';
+import { signInWithCredential, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 
 
 export const register = async (req,res,next) => {
