@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import Client from "../model/clientModel.js";
 import Project from "../model/projectModel.js";
-
+import transporter from "../utils/nodemailer.js";
 
 // Helper to generate PDF and return the file URL
 const generateQuotationPDF = async (quotation, req, subtotal, vat, total) => {
@@ -438,3 +438,85 @@ export const deleteQuatation = async (req,res,next) => {
     }
 
 }
+
+export const sendQuotationEmail = async (req, res, next) => {
+
+    // Admin check
+    if (!req.user.isAdmin) 
+    {
+        return next(errorHandler(403, "Only admin can send quotation emails"));
+    }
+
+    const { quatationId } = req.params;
+
+    try 
+    {
+        // Find the quotation
+        const quatation = await Quatation.findById(quatationId);
+
+        if (!quatation) 
+        {
+            return next(errorHandler(404, "Quotation not found"));
+        }
+
+        // Find the client
+        const client = await Client.findById(quatation.clientId);
+
+        if (!client) 
+        {
+            return next(errorHandler(404, "Client not found"));
+        }
+
+        // Compose the email with HTML
+        const mailOptions = {
+            from: "SIRE TECH SUPPORT <" + process.env.AUTH_USER + ">",
+            to: client.email,
+            subject: "Your Quotation from SIRE TECH",
+            html: `
+                <div style="font-family: Arial, sans-serif; color: #222;">
+                    <h2>Hello ${client.name},</h2>
+                    <p>
+                        Thank you for choosing <strong>SIRE TECH</strong>!<br>
+                        We are pleased to send you your quotation for the requested project.<br>
+                        Please review the attached quotation carefully.
+                    </p>
+                    <p>
+                        <strong>To view and sign your quotation, please click the link below:</strong>
+                    </p>
+                    <p style="margin: 20px 0;">
+                        <a href="${quatation.url}" style="background: #007bff; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
+                            View & Sign Quotation PDF
+                        </a>
+                    </p>
+                    <p>
+                        If you have any questions or need further assistance, feel free to reply to this email.<br>
+                        <br>
+                        Best regards,<br>
+                        <strong>SIRE TECH Team</strong>
+                    </p>
+                </div>
+            `
+        };
+
+        // Send the email
+        transporter.sendMail(mailOptions, (error, info) => {
+
+            if (error) 
+            {
+                console.log(error);
+
+                return next(errorHandler(500, "Failed to send email"));
+
+            } 
+            else 
+            {
+                console.log("Email sent: " + info.response);
+
+                res.status(200).json({ success: true, message: "Quotation email sent to client" });
+            }
+
+        });
+    } catch (error) {
+        next(error);
+    }
+};

@@ -1,10 +1,9 @@
-
 import validator from "validator"
 import User from "../model/userModel.js"
 import {errorHandler} from "../utils/error.js"
 import bcryptjs from "bcryptjs"
 import jwt from "jsonwebtoken"
-import nodemailer from "nodemailer"
+import transporter from "../utils/nodemailer.js"
 
 
 export const register = async (req,res,next) => {
@@ -121,14 +120,6 @@ export const forgotPassword = async (req,res,next) => {
             process.env.JWT_SECRET,
             {expiresIn:'1h'}
         )
-
-        var transporter = nodemailer.createTransport({
-            service:"gmail",
-            auth:{
-                user:process.env.AUTH_USER,
-                pass:process.env.AUTH_PASS
-            }
-        })
 
         var mailOptions = {
             from:"SIRE TECH SUPPORT",
