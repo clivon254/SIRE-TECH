@@ -8,15 +8,15 @@ import { addProject, deleteProject, getProject, getProjects, updateProject } fro
 
 const projectRoute = express.Router()
 
-projectRoute.post('add-project' , verifyToken, addProject)
+projectRoute.post('/add-project' , verifyToken, addProject)
 
-projectRoute.get('get-project/:projectId' , getProject)
+projectRoute.get('/get-project/:projectId' , getProject)
 
-projectRoute.get('get-projects' , verifyToken, getProjects)
+projectRoute.get('/get-projects' , verifyToken, getProjects)
 
-projectRoute.put('update-project/:projectId' , verifyToken, updateProject)
+projectRoute.put('/update-project/:projectId' , verifyToken, updateProject)
 
-projectRoute.delete('delete-project/:projectId' , verifyToken, deleteProject)
+projectRoute.delete('/delete-project/:projectId' , verifyToken, deleteProject)
 
 
 
