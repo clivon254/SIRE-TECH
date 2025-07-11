@@ -2,12 +2,13 @@ import express from "express"
 import mongoose from "mongoose"
 import cors from "cors"
 import "dotenv/config"
+import path from "path"
 import authRoute from "./route/authRoute.js"
 import userRoute from "./route/userRoute.js"
 import clientRoute from "./route/clientRoute.js"
 import projectRoute from "./route/projectRoute.js"
 import quatationRoute from "./route/quatationRoute.js"
-import path from "path"
+import invoiceRoute from "./route/invoiceRoute.js"
 
 const app = express()
 
@@ -34,6 +35,13 @@ app.use("/api/project", projectRoute)
 app.use('/quotations', express.static(path.join(process.cwd(), 'public', 'quotations')))
 
 app.use('/api/quatation' ,quatationRoute)
+
+app.use('/invoices', express.static(path.join(process.cwd(), 'public', 'invoices')))
+
+app.use('/api/invoice', invoiceRoute)
+
+
+
 
 
 
