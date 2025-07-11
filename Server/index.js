@@ -10,6 +10,9 @@ import projectRoute from "./route/projectRoute.js"
 import quatationRoute from "./route/quatationRoute.js"
 import invoiceRoute from "./route/invoiceRoute.js"
 import paymentRouter from "./route/paymentRoute.js"
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+
 
 const app = express()
 
@@ -43,11 +46,42 @@ app.use('/api/invoice', invoiceRoute)
 
 app.use('/api/payment', paymentRouter)
 
+const server = createServer(app);
 
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000", // Your frontend URL
+    methods: ["GET", "POST"]
+  }
+});
 
+// Store socket connections with checkoutRequestId
+const socketConnections = new Map();
 
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  
+  // Listen for checkout request ID from frontend
+  socket.on('subscribe-to-payment', (checkoutRequestId) => {
+    socketConnections.set(checkoutRequestId, socket.id);
+    console.log(`Client ${socket.id} subscribed to payment: ${checkoutRequestId}`);
+  });
+  
+  socket.on('disconnect', () => {
+    // Remove from connections
+    for (const [key, value] of socketConnections.entries()) {
+      if (value === socket.id) {
+        socketConnections.delete(key);
+        break;
+      }
+    }
+  });
+});
 
+// Make io available to your controllers
+app.set('io', io);
 
+app.set('socketConnections', socketConnections);
 
 
 //API

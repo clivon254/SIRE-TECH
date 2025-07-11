@@ -102,78 +102,134 @@ export const initiateMpesaStkPush = async (req, res, next) => {
 };
 
 export const mpesaCallback = async (req, res, next) => {
-
-    try
-     {
+    try {
         const callbackData = req.body;
 
+        // Log the complete callback data for debugging
         console.log("M-Pesa Callback received:", JSON.stringify(callbackData, null, 2));
 
         const stkCallback = callbackData.Body?.stkCallback;
-
         if (!stkCallback) {
+            console.log("Invalid callback data - no stkCallback found");
             return res.status(400).json({ success: false, message: "Invalid callback data" });
         }
 
         const resultCode = stkCallback.ResultCode;
         const resultDesc = stkCallback.ResultDesc;
+        const checkoutRequestId = stkCallback.CheckoutRequestID;
         const mpesaReceiptNumber = stkCallback.CallbackMetadata?.Item?.find(item => item.Name === "MpesaReceiptNumber")?.Value;
         const amount = stkCallback.CallbackMetadata?.Item?.find(item => item.Name === "Amount")?.Value;
         const phoneNumber = stkCallback.CallbackMetadata?.Item?.find(item => item.Name === "PhoneNumber")?.Value;
 
+        // Log all extracted data
+        console.log("Extracted callback data:", {
+            resultCode,
+            resultDesc,
+            checkoutRequestId,
+            mpesaReceiptNumber,
+            amount,
+            phoneNumber
+        });
+
         // Determine transaction status and message
         let transactionStatus, message;
 
-        if (resultCode === 0) 
-        {
+        if (resultCode === 0) {
             transactionStatus = "Success";
-
             message = "M-Pesa payment was successful.";
+            
+            console.log("✅ M-Pesa payment SUCCESSFUL:", { 
+                mpesaReceiptNumber, 
+                amount, 
+                phoneNumber,
+                checkoutRequestId,
+                resultDesc 
+            });
 
-            // TODO: Update your database to mark payment as successful
-            console.log("M-Pesa payment SUCCESSFUL:", { mpesaReceiptNumber, amount, phoneNumber });
-
-        } 
-        else 
-        {
+        } else {
             transactionStatus = "Failed";
-
-            message = `M-Pesa payment failed. Reason: ${resultDesc} (Code: ${resultCode})`;
-
-            // TODO: Update your database to mark payment as failed
-            console.log("M-Pesa payment FAILED:", { resultCode, resultDesc });
-
+            
+            // Handle different failure scenarios
+            switch (resultCode) {
+                case 1:
+                    message = "Insufficient funds in your M-Pesa account";
+                    break;
+                case 1032:
+                    message = "Transaction was cancelled by user";
+                    break;
+                case 1037:
+                    message = "Timeout - transaction expired";
+                    break;
+                case 2001:
+                    message = "Incorrect M-Pesa PIN";
+                    break;
+                case 2002:
+                    message = "M-Pesa PIN expired";
+                    break;
+                case 2003:
+                    message = "M-Pesa PIN blocked";
+                    break;
+                default:
+                    message = `Transaction failed: ${resultDesc} (Code: ${resultCode})`;
+            }
+            
+            console.log("❌ M-Pesa payment FAILED:", { 
+                resultCode, 
+                resultDesc,
+                checkoutRequestId,
+                phoneNumber,
+                amount,
+                failureReason: message
+            });
         }
 
-        // Respond with transaction status and reason if failed
-        res.status(200).json({
-            success: true,
-            transactionStatus,
-            message,
-            data: {
-                resultCode,
-                resultDesc,
-                mpesaReceiptNumber,
-                amount,
-                phoneNumber
-            }
-        });
+        // Get io instance and socket connections for real-time frontend updates
+        const io = req.app.get('io');
+        const socketConnections = req.app.get('socketConnections');
 
-    } 
-    catch (error)
-     {
+        // Emit to frontend if socket exists for this checkoutRequestId
+        if (checkoutRequestId && socketConnections && socketConnections.has(checkoutRequestId)) {
+            const socketId = socketConnections.get(checkoutRequestId);
+            io.to(socketId).emit('payment-status', {
+                success: true,
+                transactionStatus,
+                message,
+                data: {
+                    resultCode,
+                    resultDesc,
+                    mpesaReceiptNumber,
+                    amount,
+                    phoneNumber,
+                    checkoutRequestId
+                }
+            });
+            
+            console.log(`📡 Real-time update sent to frontend for checkoutRequestId: ${checkoutRequestId}`);
+            
+            // Remove the connection after emitting
+            socketConnections.delete(checkoutRequestId);
+        } else {
+            console.log(`⚠️ No frontend connection found for checkoutRequestId: ${checkoutRequestId}`);
+        }
+
+        console.log("📤 Responding to Safaricom with 200 OK");
+        res.status(200).json({ success: true, message: "Callback received" });
+
+    } catch (error) {
+        console.error("❌ Error in mpesaCallback:", error);
         next(error);
     }
 };
 
 export const confirmTransaction = async (req, res, next) => {
-    
     try {
         const { checkoutRequestId } = req.query;
 
         if (!checkoutRequestId) {
             return next(errorHandler(400, "CheckoutRequestID is required"));
         }
+
+        console.log(`🔍 Querying transaction status for: ${checkoutRequestId}`);
 
         // Prepare query parameters
         const shortCode = process.env.SHORTCODE;
@@ -200,27 +256,49 @@ export const confirmTransaction = async (req, res, next) => {
             }
         );
 
+        console.log("Safaricom query response:", JSON.stringify(response.data, null, 2));
+
         const resultCode = response.data.ResultCode;
         const resultDesc = response.data.ResultDesc;
 
-        // Determine transaction status
+        // Determine transaction status with detailed error messages
         let transactionStatus, message;
 
-        if (resultCode === 0) 
-        {
+        if (resultCode === 0) {
             transactionStatus = "Success";
             message = "Transaction completed successfully";
-        } 
-        else if (resultCode === 1) 
-        {
+        } else if (resultCode === 1) {
             transactionStatus = "Pending";
             message = "Transaction is being processed";
-        } 
-        else
-       {
+        } else {
             transactionStatus = "Failed";
-            message = `Transaction failed: ${resultDesc}`;
+            
+            // Handle different failure scenarios
+            switch (resultCode) {
+                case 1:
+                    message = "Insufficient funds in your M-Pesa account";
+                    break;
+                case 1032:
+                    message = "Transaction was cancelled by user";
+                    break;
+                case 1037:
+                    message = "Timeout - transaction expired";
+                    break;
+                case 2001:
+                    message = "Incorrect M-Pesa PIN";
+                    break;
+                case 2002:
+                    message = "M-Pesa PIN expired";
+                    break;
+                case 2003:
+                    message = "M-Pesa PIN blocked";
+                    break;
+                default:
+                    message = `Transaction failed: ${resultDesc}`;
+            }
         }
+
+        console.log(`📊 Transaction status: ${transactionStatus} - ${message}`);
 
         // Return transaction status
         res.status(200).json({
@@ -235,15 +313,13 @@ export const confirmTransaction = async (req, res, next) => {
             }
         });
 
-    } 
-    catch (error)
-    {
+    } catch (error) {
+        console.error("❌ Error in confirmTransaction:", error);
         if (error.response && error.response.data) {
             return next(errorHandler(500, error.response.data.errorMessage || "Transaction query failed"));
         }
         next(error);
     }
-
 };
 
 
