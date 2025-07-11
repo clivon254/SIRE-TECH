@@ -9,6 +9,7 @@ import clientRoute from "./route/clientRoute.js"
 import projectRoute from "./route/projectRoute.js"
 import quatationRoute from "./route/quatationRoute.js"
 import invoiceRoute from "./route/invoiceRoute.js"
+import paymentRouter from "./route/paymentRoute.js"
 
 const app = express()
 
@@ -40,6 +41,7 @@ app.use('/invoices', express.static(path.join(process.cwd(), 'public', 'invoices
 
 app.use('/api/invoice', invoiceRoute)
 
+app.use('/api/payment', paymentRouter)
 
 
 
