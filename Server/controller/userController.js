@@ -31,34 +31,38 @@ export const getUser = async (req,res,next) => {
 
 }
 
-export const getUsers = async (req,res,next) => {
+export const getUsers = async (req, res, next) => {
+  if (!req.user.isAdmin) {
+    return next(errorHandler(401, "You are not allowed to access all the users"));
+  }
 
-    if(!req.user.isAdmin)
-    {
-        return next(errorHandler(401,"You are not allowed to acces all the users"))
-    }
+  // Get page and limit from query params, default to page=1, limit=10
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
 
-    try
-    {
-        const users = await User.find()
+  try {
+    const total = await User.countDocuments();
+    const users = await User.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
-        const usersWithOutPassword = users.map((user) => {
+    const usersWithOutPassword = users.map((user) => {
+      const { password, ...rest } = user._doc;
+      return rest;
+    });
 
-            const {password , ...rest} = user._doc
-
-            return rest
-
-        })
-
-        res.status(200).json({success:true , usersWithOutPassword})
-
-    }
-    catch(error)
-    {
-        next(error)
-    }
-
-}
+    res.status(200).json({
+      success: true,
+      usersWithOutPassword,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const updatetUser = async (req,res,next) => {
 

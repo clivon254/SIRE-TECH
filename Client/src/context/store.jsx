@@ -1,19 +1,25 @@
+
 import React, { createContext, useState, useEffect } from 'react'
 
 export const StoreContext = createContext(null)
 
 export default function StoreContextProvider(props) {
-    const [token, setToken] = useState("")
+
+    const [token, setToken] = useState(localStorage.getItem("token") || sessionStorage.getItem("token"))
 
     const [sidebarOpen, setSidebarOpen] = useState(false)
 
     // On mount, check for token in localStorage/sessionStorage
     useEffect(() => {
+
         const storedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
-        if (storedToken) {
+
+        if (storedToken) 
+        {
             setToken(storedToken);
         }
-    }, []);
+
+    }, [token]);
 
     const contextValue = {
         token, setToken,

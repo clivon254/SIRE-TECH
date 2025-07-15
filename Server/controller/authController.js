@@ -123,11 +123,13 @@ export const forgotPassword = async (req,res,next) => {
             {expiresIn:'1h'}
         )
 
+        const FRONTEND_URL = process.env.FRONTEND_URL
+
         var mailOptions = {
             from:"SIRE TECH SUPPORT",
             to:user.email,
             subject:"Reset Password",
-            text:`Click on this link to reset your password: http://localhost:5174/reset-password/${token}`
+            text:`Click on this link to reset your password: ${FRONTEND_URL}/reset-password/${token}`
         }
 
         transporter.sendMail(mailOptions ,(error,info) => {

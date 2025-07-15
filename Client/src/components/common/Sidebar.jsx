@@ -3,6 +3,7 @@ import { useContext } from "react";
 import { StoreContext } from "../../context/store";
 import { MdDashboard, MdWork, MdPeople, MdPerson, MdDescription, MdReceipt } from "react-icons/md";
 import { XMarkIcon } from "@heroicons/react/24/solid";
+import { FiLogOut } from "react-icons/fi";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: <MdDashboard className="h-5 w-5" /> },
@@ -14,8 +15,15 @@ const links = [
 ];
 
 export default function Sidebar() {
-  const { sidebarOpen, setSidebarOpen } = useContext(StoreContext);
+  const { sidebarOpen, setSidebarOpen, setToken } = useContext(StoreContext);
   const location = useLocation();
+
+  const handleLogout = () => {
+    setToken("");
+    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
+    // Optionally, you can redirect here if you want
+  };
 
   return (
     <>
@@ -29,10 +37,12 @@ export default function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed z-50 top-0 left-0 h-full w-64 bg-white shadow-lg border-r
+          fixed z-50 top-0 left-0 h-screen w-64 bg-white shadow-lg border-r
           transform transition-transform duration-300
+          flex flex-col
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          md:static md:translate-x-0 md:w-1/3 md:max-w-xs md:h-auto md:shadow-none md:border-none
+          md:static md:translate-x-0 md:w-[30%] md:max-w-xs md:h-full md:shadow-none md:border-none
+          overflow-y-auto
         `}
         style={{ minWidth: "200px", maxWidth: "350px" }}
       >
@@ -46,13 +56,18 @@ export default function Sidebar() {
             <XMarkIcon className="h-7 w-7" />
           </button>
         </div>
-        <nav className="flex flex-col gap-2 p-6 pt-0 md:pt-0">
+        {/* Friendly heading */}
+        <div className="px-6 pt-2 pb-4">
+          <h2 className="text-lg font-bold text-red-600 mb-1">Welcome to SIRE TECH</h2>
+          <p className="text-xs text-gray-500">Your business, powered by innovation.</p>
+        </div>
+        <nav className="flex flex-col gap-1 px-4 pb-4 flex-1">
           {links.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-4 py-2 rounded-lg font-medium transition ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition ${
                 location.pathname === link.to
                   ? "bg-red-600 text-white"
                   : "text-gray-700 hover:bg-red-50 hover:text-red-700"
@@ -63,6 +78,13 @@ export default function Sidebar() {
             </Link>
           ))}
         </nav>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 w-full px-4 py-3 mb-4 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition"
+        >
+          <FiLogOut className="h-5 w-5" />
+          Logout
+        </button>
       </aside>
     </>
   );

@@ -80,21 +80,39 @@ export default function Login() {
       await loginSchema.validate(form, { abortEarly: false })
       
       dispatch(signInStart())
+
       const res = await api.post('/auth/login', form)
-      if (res.data.success) {
+
+      if (res.data.success) 
+      {
+
         dispatch(signInSuccess(res.data.rest))
-        if (rememberMe) {
+
+        if (rememberMe) 
+        {
           localStorage.setItem("token", res.data.token)
-        } else {
+        } 
+        else 
+        {
           sessionStorage.setItem("token", res.data.token)
         }
+
         setToken(res.data.token)
+
         toast.success("Login successful!")
+
         navigate('/dashboard')
-      } else {
+
+      } 
+      else 
+      {
         dispatch(signInFailure(res.data.message))
       }
-    } catch (err) {
+
+    } 
+    catch (err) 
+    {
+      
       if (err.name === 'ValidationError') {
         // Yup validation errors
         const validationErrors = {}
@@ -107,6 +125,7 @@ export default function Login() {
         const msg = err.response?.data?.message || "Login failed"
         dispatch(signInFailure(msg))
       }
+
     }
   }
 

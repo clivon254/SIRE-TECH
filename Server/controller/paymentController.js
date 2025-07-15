@@ -46,7 +46,7 @@ export const initiateMpesaStkPush = async (req, res, next) => {
         const timestamp = new Date().toISOString().replace(/[-T:\.Z]/g, '').slice(0, 14);
         const password = Buffer.from(`${shortCode}${passkey}${timestamp}`).toString("base64");
 
-        const callbackURL = "https://28c123dddcd8.ngrok-free.app/api/payment/mpesa-callback";
+        const callbackURL = process.env.BACKEND_URL
 
         const payload = {
             "BusinessShortCode": shortCode,
