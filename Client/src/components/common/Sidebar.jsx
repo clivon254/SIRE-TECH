@@ -67,10 +67,10 @@ export default function Sidebar() {
               key={link.to}
               to={link.to}
               onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg font-small text-xs transition ${
                 location.pathname === link.to
-                  ? "bg-red-600 text-white"
-                  : "text-gray-700 hover:bg-red-50 hover:text-red-700"
+                  ? "bg-red-50 text-red-600"
+                  : "text-red-600 hover:bg-red-50 hover:text-red-500"
               }`}
             >
               {link.icon}

@@ -3,9 +3,10 @@ import { useContext } from 'react'
 import { StoreContext } from './context/store'
 import LandingPage from './pages/auth/LandingPage'
 import Login from './pages/auth/login'
-import Registration from './pages/auth/Registration'
+import Registration from './pages/user/Registration'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
+import OTP from "./pages/auth/OTP";
 import { Toaster } from "sonner";
 import Header from "./components/common/Header";
 import Sidebar from "./components/common/Sidebar"
@@ -16,6 +17,7 @@ import Project from "./pages/project/project";
 import User from "./pages/user/User";
 import Dashboard from "./pages/index/Dashboard";
 import Profile from "./pages/user/Profile";
+import UpdateUser from "./pages/user/UpdateUser";
 
 // Main Layout - only for authenticated users
 function Layout() {
@@ -35,6 +37,7 @@ function Layout() {
   )
 }
 
+
 export default function App() {
   return (
     <Router>
@@ -51,6 +54,7 @@ export default function App() {
           <Route path="/client" element={<Client />} />
           <Route path="/project" element={<Project />} />
           <Route path="/user" element={<User />} />
+          <Route path="/update-user/:userId" element={<UpdateUser />} />
         </Route>
 
         {/* Public routes */}
@@ -58,6 +62,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/otp" element={<OTP />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/landing-page" replace />} />

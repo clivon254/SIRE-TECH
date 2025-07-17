@@ -8,41 +8,70 @@ import { auth } from '../utils/firebase.js';
 import { signInWithCredential, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 
 
-export const register = async (req,res,next) => {
+// In-memory OTP store: { [email]: { otp, expires } }
+const otpStore = {};
 
-    const {email,password,username} = req.body
 
-    if(!username || !email || !password || username === "" || email === "" || password === "")
-    {
-        return next(errorHandler(400,"All feilds are required"))
+export const register = async (req, res, next) => {
+    // Only admin can register new users
+    if (!req.user?.isAdmin) {
+        return next(errorHandler(403, "Only admin can onboard new users"));
     }
 
-    if(!validator.isEmail(email))
-    {
-        return next(errorHandler(401,"Email is not valid"))
+    const { email, username, phone } = req.body;
+
+    if (!username || !email || !phone) {
+        return next(errorHandler(400, "All fields are required"));
     }
 
-    try
-    {
-        const hashedPassword = bcryptjs.hashSync(password ,10)
+    if (!validator.isEmail(email)) {
+        return next(errorHandler(401, "Email is not valid"));
+    }
 
+    try {
+        // Use phone as initial password
+        const password = phone.toString();
+        const hashedPassword = bcryptjs.hashSync(password, 10);
+
+        // Set isActive to false
         const newUser = new User({
+            phone,
             email,
             username,
-            password:hashedPassword
-        })
+            password: hashedPassword,
+            isActive: false,
+        });
 
-        await newUser.save()
+        await newUser.save();
 
-        res.status(200).json({success:true , message:"signed up successfully"})
+        // Generate OTP and expiry (6 hours)
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = Date.now() + 6 * 60 * 60 * 1000; // 6 hours in ms
 
+        // Store OTP in memory
+        otpStore[email] = { otp, expires: otpExpires };
+
+        // Send OTP to email
+        var mailOptions = {
+            from: "SIRE TECH SUPPORT",
+            to: email,
+            subject: "Activate your account - OTP",
+            text: `Your OTP code is: ${otp}. It expires in 6 hours.`,
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.log(error);
+            } else {
+                console.log("OTP Email sent: " + info.response);
+            }
+        });
+
+        res.status(200).json({ success: true, message: "User registered. OTP sent to email." });
+    } catch (error) {
+        next(error);
     }
-    catch(error)
-    {
-        next(error)
-    }
-
-}
+};
 
 export const login = async (req,res,next) => {
 
@@ -192,4 +221,98 @@ export const resetPassword = async (req,res,next) => {
     }
 
 }
+
+export const verifyOtp = async (req, res, next) => {
+
+    const { email, otp } = req.body;
+
+    if (!email || !otp) 
+    {
+        return next(errorHandler(400, "Email and OTP are required"));
+    }
+
+    const record = otpStore[email];
+
+    if (!record) 
+    {
+        return next(errorHandler(400, "No OTP found for this email"));
+    }
+
+    if (record.otp !== otp) 
+    {
+        return next(errorHandler(400, "Invalid OTP"));
+    }
+
+    if (Date.now() > record.expires) 
+    {
+        delete otpStore[email];
+        return next(errorHandler(400, "OTP expired"));
+    }
+
+    try 
+    {
+        const user = await User.findOne({ email });
+
+        if (!user) return next(errorHandler(404, "User not found"));
+
+        user.isActive = true;
+
+        await user.save();
+
+        delete otpStore[email];
+
+        res.status(200).json({ success: true, message: "Account activated. Please set a new password." });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const resendOtp = async (req, res, next) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return next(errorHandler(400, "Email is required"));
+    }
+
+    try {
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return next(errorHandler(404, "User not found"));
+        }
+
+        if (user.isActive) {
+            return next(errorHandler(400, "Account is already active"));
+        }
+
+        // Generate new OTP and expiry (6 hours)
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = Date.now() + 6 * 60 * 60 * 1000; // 6 hours
+
+        // Store OTP in memory
+        otpStore[email] = { otp, expires: otpExpires };
+
+        // Send OTP to email
+        var mailOptions = {
+            from: "SIRE TECH SUPPORT",
+            to: email,
+            subject: "Resend OTP - Activate your account",
+            text: `Your new OTP code is: ${otp}. It expires in 6 hours.`,
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.log(error);
+            } else {
+                console.log("Resent OTP Email sent: " + info.response);
+            }
+        });
+
+        res.status(200).json({ success: true, message: "OTP resent to email." });
+    } catch (error) {
+        next(error);
+    }
+};
+
 

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import logo from "../../assets/LOGO.png";
 import { useSelector } from "react-redux";
 import { Menu } from "@headlessui/react";
@@ -8,15 +8,25 @@ import { StoreContext } from "../../context/store";
 import { FiLogOut } from "react-icons/fi";
 
 export default function Header() {
-  const user = useSelector((state) => state.user.user);
+
+  const {User} = useSelector((state) => state.user);
+
   const { sidebarOpen, setSidebarOpen, setToken } = useContext(StoreContext);
+
+  const navigate = useNavigate()
 
   // Logout handler
   const handleLogout = () => {
+
     setToken("");
+
     localStorage.removeItem("token");
+
     sessionStorage.removeItem("token");
+
     // Optionally, redirect to login or landing page here
+    navigate('/landing-page')
+
   };
 
   return (
@@ -50,10 +60,10 @@ export default function Header() {
             {/* Avatar and Menu */}
             <Menu as="div" className="relative">
               <Menu.Button className="flex items-center focus:outline-none">
-                {user?.avatar ? (
+                {User?.avatar ? (
                   <img
-                    src={user.avatar}
-                    alt={user.username}
+                    src={User.avatar}
+                    alt={User.username}
                     className="h-10 w-10 rounded-full object-cover border-2 border-red-500"
                   />
                 ) : (
@@ -62,8 +72,8 @@ export default function Header() {
               </Menu.Button>
               <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right bg-white border border-gray-200 rounded-lg shadow-lg focus:outline-none z-50">
                 <div className="p-4 border-b">
-                  <div className="font-semibold text-lg text-gray-900">{user?.username || "User"}</div>
-                  <div className="text-sm text-gray-500">{user?.email || "user@example.com"}</div>
+                  <div className="font-semibold text-lg text-gray-900">{User?.username || "User"}</div>
+                  <div className="text-sm text-gray-500">{User?.email || "user@example.com"}</div>
                 </div>
                 <div className="py-1">
                   <Menu.Item>

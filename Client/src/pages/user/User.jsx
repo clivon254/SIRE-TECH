@@ -10,6 +10,10 @@ import { StoreContext } from "@/context/store";
 import { FiX } from "react-icons/fi";
 import { FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight } from "react-icons/fi";
 import Pagination from "@/components/common/Pagination";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { FiSearch } from "react-icons/fi";
 
 export default function User() {
   const navigate = useNavigate();
@@ -124,20 +128,44 @@ export default function User() {
   }
 
   return (
+
     <div className="p-4 md:p-8">
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          {/* Mobile back link */}
-          <button
-            onClick={() => navigate(-1)}
-            className="md:hidden inline-flex items-center gap-1 text-red-600 hover:underline text-sm"
-          >
-            <AiOutlineArrowLeft size={18} />
-            Back
-          </button>
-          <h1 className="text-2xl font-bold">Users</h1>
+      <div className="flex flex-row justify-between gap-4 mb-6">
+            
+        {/* Top: Search */}
+        <div className="flex flex-col gap-1 flex-1">
+         
+          <div className="relative">
+            {/* 
+              Show icon if search is empty, or always on md+ screens.
+              On mobile, hide icon when typing (search not empty).
+            */}
+            <span
+              className={`
+                absolute left-3 top-1/2 -translate-y-1/2 text-gray-400
+                ${search.length > 0 ? "hidden md:block" : "block"}
+              `}
+            >
+              <FiSearch />
+            </span>
+            <Input
+              type="text"
+              placeholder="search users by email/username"
+              className={`
+                pl-10  md:w-72 text-xs placeholder:text-xs
+                border border-gray-700
+                focus:border-red-600 focus:ring-0
+              `}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+          
         </div>
+          
         {/* Register new user link (admin only) */}
         {User?.isAdmin && (
           <Link
@@ -147,37 +175,62 @@ export default function User() {
             Register New User
           </Link>
         )}
+
       </div>
-      {/* Search and Pagination Controls */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-        {/* Search input */}
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            className="w-full md:w-72 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200 transition placeholder:text-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+
+  
+      {/* Bottom: Actions and filters */}
+      <div className="flex flex-row gap-2 items-center justify-between my-4">
+
+        {/* total user */}
+        <span className="text-xs text-gray-500 mt-1">
+          Total {data?.usersWithOutPassword?.length ?? 0} users
+        </span>
+
+        {/* select */}
+        <div className="flex flex-row gap-x-2">
+
+          {/* status */}
+          <Select
+            // value={} onValueChange={} // implement status filter if needed
             disabled={isLoading}
-          />
-        </div>
-        {/* Pagination size dropdown */}
-        <div>
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200 transition text-sm cursor-pointer"
-            value={limit}
-            onChange={e => {
-              setLimit(Number(e.target.value));
-              setPage(1); // reset to first page when limit changes
+            className=""
+          >
+            <SelectTrigger className="w-32 text-xs">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent className="text-xs">
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+
+            {/* user per page */}
+          <Select
+            value={String(limit)}
+            onValueChange={val => {
+              setLimit(Number(val));
+              setPage(1);
             }}
             disabled={isLoading}
           >
-            {[1, 5, 10, 25, 50, 100, 1000].map(num => (
-              <option key={num} value={num}>{num} per page</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-36 text-xs">
+              <SelectValue placeholder="Rows per page" />
+            </SelectTrigger>
+            <SelectContent>
+              {[1, 5, 10, 25, 50, 100, 1000].map(num => (
+                <SelectItem key={num} value={String(num)}>
+                  {num} per page
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
         </div>
+
       </div>
+
 
       {/* Loading and error states */}
       {isLoading && (
@@ -224,19 +277,35 @@ export default function User() {
           </Table>
         </div>
       )}
+
       {isError && (
-        <div className="text-center text-red-500 py-10">
-          {error?.response?.data?.message || "Failed to load users."}
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="bg-red-50 border border-red-50 rounded-xl px-6 py-8 flex flex-col items-center shadow-sm max-w-md w-full">
+            <FiAlertTriangle className="text-red-500 mb-3" size={40} />
+            <div className="text-red-700 font-semibold text-lg mb-2">
+              Failed to load users
+            </div>
+            <div className="text-red-500 text-sm mb-4 text-center">
+              {error?.response?.data?.message || "An unexpected error occurred while fetching users. Please try again."}
+            </div>
+            <Button
+              variant="outline"
+              className="border-red-500 text-red-600 hover:bg-red-100"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
+          </div>
         </div>
       )}
 
       {/* Users Table */}
       {!isLoading && !isError && data && (
         <>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border text-xs ">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="text-xs font-black">
                   <TableHead>#</TableHead>
                   <TableHead>Avatar</TableHead>
                   <TableHead>Username</TableHead>
@@ -256,9 +325,9 @@ export default function User() {
                   filteredUsers.map((user, idx) => (
                     <TableRow
                       key={user._id}
-                      className={user.isAdmin ? "bg-gray-100" : ""}
+                      className={`${user.isAdmin ? "bg-red-50/75 hover:bg-red-50" : "hover:bg-gray-50"} text-xs `}
                     >
-                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>{idx + 1}.</TableCell>
                       <TableCell>
                         <img
                           src={user.avatar}
@@ -275,18 +344,24 @@ export default function User() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="text-red-500 hover:text-red-700"
                             title="Delete"
                             onClick={() => handleOpenDeleteModal(user._id)}
                           >
                             <FiTrash2 />
-                          </button>
-                          <Link to={`/user/update/${user._id}`} className="text-blue-500 hover:text-blue-700" title="Edit">
-                            <FiEdit2 />
+                          </Button>
+                          <Link to={`/user/update/${user._id}`} title="Edit">
+                            <Button variant="ghost" size="icon" className="text-blue-500 hover:text-blue-700">
+                              <FiEdit2 />
+                            </Button>
                           </Link>
-                          <Link to={`/user/${user._id}`} className="text-gray-500 hover:text-gray-700" title="View">
-                            <FiEye />
+                          <Link to={`/update-user/${user._id}`} title="View">
+                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
+                              <FiEye />
+                            </Button>
                           </Link>
                         </div>
                       </TableCell>
@@ -347,16 +422,17 @@ export default function User() {
               <div className="text-red-500 text-center py-4">{deleteError}</div>
             ) : (
               <>
-                <p className="text-center text-gray-700 mb-4">
+                <p className="text-center text-gray-700 mb-4 text-sm">
                   Are you sure you want to <span className="font-semibold text-red-700">delete</span> user <br />
-                  <span className="font-semibold text-lg">
+                  <span className="font-semibold text-base mr-2">
                     {selectedUser?.username}
                   </span>
                   ?
                 </p>
                 <div className="flex justify-between gap-2 mt-6">
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-black hover:bg-black/70 text-white font-semibold transition"
+                  <Button
+                    variant="outline"
+                    className="flex-1 flex items-center justify-center gap-2"
                     onClick={() => {
                       setShowDeleteModal(false);
                       setSelectedUserId(null);
@@ -366,21 +442,23 @@ export default function User() {
                     disabled={deleting}
                   >
                     <FiX className="text-lg" /> Cancel
-                  </button>
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition shadow"
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1 flex items-center justify-center gap-2"
                     onClick={handleDeleteUser}
                     disabled={deleting}
                   >
                     <FiTrash2 className="text-lg" />
                     {deleting ? "Deleting..." : "Delete"}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
           </div>
         </div>
       )}
+
     </div>
   );
 }
